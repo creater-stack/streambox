@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+enum Role          { USER ADMIN }
+enum VideoStatus   { UPLOADING PROCESSING READY FAILED }
+enum UploadStatus  { CREATED UPLOADING UPLOADED COMPLETE FAILED }
+model User {
+  id           String   @id @default(cuid())
+  username     String   @unique
+  email        String   @unique
+  passwordHash String
+  avatarUrl    String?
+  bio          String?
+  role         Role     @default(USER)
+  suspended    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  videos     Video[]
+  uploads    Upload[]
+  comments   Comment[]
+  likes      Like[]
+  views      View[]
+  reports    Report[]
+  resetTokens PasswordResetToken[]
+}
+model Category {
+  id     String  @id @default(cuid())
+  name   String  @unique
+  slug   String  @unique
+  videos Video[]
+}
+model Video {
+  id            String      @id @default(cuid())
+  title         String
+  description   String?
+  status        VideoStatus @default(UPLOADING)
+  failReason    String?
+  duration      Float?
+  width         Int?
+  height        Int?
+  thumbPath     String?
+  hlsPath       String?
+  viewsCount    Int         @default(0)
+  likesCount    Int         @default(0)
+  commentsCount Int         @default(0)
+  publishedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  uploadId String?  @unique
+  upload   Upload?
+  streams  VideoStream[]
+  comments Comment[]
+  likes    Like[]
+  views    View[]
+  tags     VideoTag[]
+  reports  Report[]
+  @@index([status, createdAt])
+  @@index([categoryId])
+}
+model VideoStream {
+  id           String @id @default(cuid())
+  videoId      String
+  video        Video  @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  label        String
+  height       Int
+  bandwidth    Int
+  playlistPath String
+}
+model Upload {
+  id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  filename  String
+  mimetype  String
+  size      BigInt
+  offset    BigInt       @default(0)
+  status    UploadStatus @default(CREATED)
+  filePath  String
+  createdAt DateTime     @default(now())
+  video     Video?
+}
+model Comment {
+  id        String   @id @default(cuid())
+  body      String
+  createdAt DateTime @default(now())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+model Like {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([videoId, userId])
+}
+model View {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  ipHash    String?
+  @@index([videoId, createdAt])
+}
+model Tag {
+  id     String     @id @default(cuid())
+  name   String     @unique
+  videos VideoTag[]
+}
+model VideoTag {
+  videoId String
+  tagId   String
+  video   Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  @@id([videoId, tagId])
+}
+model Report {
+  id        String   @id @default(cuid())
+  reason    String
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  videoId   String
+  video     Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
